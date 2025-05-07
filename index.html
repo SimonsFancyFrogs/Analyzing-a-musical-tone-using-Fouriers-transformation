@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Finde Toner Ved Hjælp Af Fourier-Analyse</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.5/lib/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/addons/p5.sound.min.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Find en tone baseret på en lydfil</h1>
+      <p>Indlæs en lydfil og se dens frekvensspektre sammen med de tilsvarende toner.</p>
+      <input type="file" id="lydfil" accept="audio/*">
+      <button id="startAnalyse">Start Analyse</button>
+      <div id="sketch-holder"></div>
+    </main>
+    <script>
+      let fft;
+      let sound;
+      let startAnalysis = false;
+      let spectrumData = [];
+      let dominantTone = { freq: 0, tone: "Ingen gyldig frekvens" };
+
+      const tones = [
+        { name: "C8", freq: 4186.01 },
+        { name: "B7", freq: 3951.07 },
+        { name: "A#7/Bb7", freq: 3729.31 },
+        { name: "A7", freq: 3520.00 },
+        { name: "G#7/Ab7", freq: 3322.44 },
+        { name: "G7", freq: 3135.96 },
+        { name: "F#7/Gb7", freq: 2959.96 },
+        { name: "F7", freq: 2793.83 },
+        { name: "E7", freq: 2637.02 },
+        { name: "D#7/Eb7", freq: 2489.02 },
+        { name: "D7", freq: 2349.32 },
+        { name: "C#7/Db7", freq: 2217.46 },
+        { name: "C7", freq: 2093.00 },
+        { name: "B6", freq: 1975.53 },
+        { name: "A#6/Bb6", freq: 1864.66 },
+        { name: "A6", freq: 1760.00 },
+        { name: "G#6/Ab6", freq: 1661.22 },
+        { name: "G6", freq: 1567.98 },
+        { name: "F#6/Gb6", freq: 1479.98 },
+        { name: "F6", freq: 1396.91 },
+        { name: "E6", freq: 1318.51 },
+        { name: "D#6/Eb6", freq: 1244.51 },
+        { name: "D6", freq: 1174.66 },
+        { name: "C#6/Db6", freq: 1108.73 },
+        { name: "C6", freq: 1046.50 },
+        { name: "B5", freq: 987.77 },
+        { name: "A#5/Bb5", freq: 932.33 },
+        { name: "A5", freq: 880.00 },
+        { name: "G#5/Ab5", freq: 830.61 },
+        { name: "G5", freq: 783.99 },
+        { name: "F#5/Gb5", freq: 739.99 },
+        { name: "F5", freq: 698.46 },
+        { name: "E5", freq: 659.26 },
+        { name: "D#5/Eb5", freq: 622.25 },
+        { name: "D5", freq: 587.33 },
+        { name: "C#5/Db5", freq: 554.37 },
+        { name: "C5", freq: 523.25 },
+        { name: "B4", freq: 493.88 },
+        { name: "A#4/Bb4", freq: 466.16 },
+        { name: "A4", freq: 440.00 },
+        { name: "G#4/Ab4", freq: 415.30 },
+        { name: "G4", freq: 391.99 },
+        { name: "F#4/Gb4", freq: 369.99 },
+        { name: "F4", freq: 349.23 },
+        { name: "E4", freq: 329.63 },
+        { name: "D#4/Eb4", freq: 311.13 },
+        { name: "D4", freq: 293.66 },
+        { name: "C#4/Db4", freq: 277.18 },
+        { name: "C4", freq: 261.63 },
+        { name: "B3", freq: 246.94 },
+        { name: "A#3/Bb3", freq: 233.08 },
+        { name: "A3", freq: 220.00 },
+        { name: "G#3/Ab3", freq: 207.65 },
+        { name: "G3", freq: 195.99 },
+        { name: "F#3/Gb3", freq: 184.99 },
+        { name: "F3", freq: 174.61 },
+        { name: "E3", freq: 164.81 },
+        { name: "D#3/Eb3", freq: 155.56 },
+        { name: "D3", freq: 146.83 },
+        { name: "C#3/Db3", freq: 138.59 },
+        { name: "C3", freq: 130.81 },
+        { name: "B2", freq: 123.47 },
+        { name: "A#2/Bb2", freq: 116.54 },
+        { name: "A2", freq: 110.00 },
+        { name: "G#2/Ab2", freq: 103.83 },
+        { name: "G2", freq: 97.99 },
+        { name: "F#2/Gb2", freq: 92.50 },
+        { name: "F2", freq: 87.31 },
+        { name: "E2", freq: 82.41 },
+        { name: "D#2/Eb2", freq: 77.78 },
+        { name: "D2", freq: 73.42 },
+        { name: "C#2/Db2", freq: 69.30 },
+        { name: "C2", freq: 65.41 },
+        { name: "B1", freq: 61.74 },
+        { name: "A#1/Bb1", freq: 58.27 },
+        { name: "A1", freq: 55.00 },
+        { name: "G#1/Ab1", freq: 51.91 },
+        { name: "G1", freq: 48.99 },
+        { name: "F#1/Gb1", freq: 46.25 },
+        { name: "F1", freq: 43.65 },
+        { name: "E1", freq: 41.20 },
+        { name: "D#1/Eb1", freq: 38.89 },
+        { name: "D1", freq: 36.71 },
+        { name: "C#1/Db1", freq: 34.65 },
+        { name: "C1", freq: 32.70 },
+        { name: "B0", freq: 30.87 },
+        { name: "A#0/Bb0", freq: 29.14 },
+        { name: "A0", freq: 27.50 }
+      ];
+
+      function setup() {
+        let cnv = createCanvas(windowWidth, 400);
+        cnv.parent("sketch-holder"); // Placer canvas i #sketch-holder
+        fft = new p5.FFT(); // Opret FFT-objekt
+
+        const fileInput = document.getElementById("lydfil");
+        fileInput.addEventListener("change", handleFileUpload); // Tilføj filhåndteringsfunktion
+
+        const startButton = document.getElementById("startAnalyse");
+        startButton.addEventListener("click", () => {
+          if (sound && sound.isLoaded()) {
+            startAnalysis = !startAnalysis; // Skift mellem start/stop analyse
+            if (startAnalysis) {
+              sound.play();
+            } else {
+              sound.stop();
+              displayDominantTone();
+            }
+          }
+        });
+      }
+
+      function draw() {
+        background(255);
+
+        if (startAnalysis && sound && sound.isLoaded()) {
+          let spectrum = fft.analyze(); // Få frekvensspektret
+          spectrumData = spectrum; // Gem spektret til visning senere
+          dominantTone = getDominantTone(spectrum);
+          drawSpectrum(spectrum); // Tegn spektret
+        } else if (spectrumData.length > 0) {
+          drawSpectrum(spectrumData); // Tegn tidligere gemt spektrum
+        }
+
+        displayDominantTone(); // Vis dominerende tone
+
+        if (!startAnalysis || !sound || !sound.isLoaded()) {
+          fill(0);
+          textSize(16);
+          textAlign(CENTER, CENTER);
+          text("Indlæs en lydfil og tryk på 'Start Analyse'", width / 2, height / 2);
+        }
+      }
+
+      function drawSpectrum(spectrum) {
+        noFill();
+        beginShape();
+        stroke(20);
+        for (let i = 0; i < spectrum.length; i++) {
+          let x = map(i, 0, spectrum.length, 0, width); // X-aksen repræsenterer frekvens
+          let y = map(Math.max(spectrum[i], 0), 0, 255, height, 0); // Y-aksen repræsenterer amplitude (ingen værdier under 0)
+          vertex(x, y);
+        }
+        endShape();
+
+        drawAxes();
+      }
+
+      function drawAxes() {
+        // X-akse (frekvens)
+        stroke(0);
+        line(0, height - 20, width, height - 20); // X-akse linje
+        noStroke();
+        fill(0);
+        textAlign(CENTER, TOP);
+        let nyquist = sampleRate() / 2; // Nyquist-frekvensen
+        for (let i = 0; i <= 10; i++) {
+          let freq = map(i, 0, 10, 0, nyquist);
+          let x = map(i, 0, 10, 0, width);
+          text(`${freq.toFixed(0)} Hz`, x, height - 15);
+        }
+        textAlign(CENTER, BOTTOM);
+        text("Frekvens", width / 2, height-20);
+
+        // Y-akse (amplitude)
+        stroke(0);
+        line(40, 0, 40, height); // Y-akse linje
+        noStroke();
+        fill(0);
+        textAlign(RIGHT, CENTER);
+        for (let i = 0; i <= 5; i++) {
+          let amp = map(i, 0, 5, 0, 255);
+          let y = map(amp, 0, 255, height, 0);
+          text(`${amp.toFixed(0)}`, 35, y);
+        }
+        textAlign(LEFT, CENTER);
+        text("Amplitude", 50, height / 2);
+      }
+
+      function getDominantTone(spectrum) {
+        let highestEnergy = 0;
+        let dominantFreqIndex = 0;
+
+        for (let i = 0; i < spectrum.length; i++) {
+          if (spectrum[i] > highestEnergy) {
+            highestEnergy = spectrum[i];
+            dominantFreqIndex = i;
+          }
+        }
+
+        let dominantFreq = map(dominantFreqIndex, 0, spectrum.length, 0, sampleRate() / 2);
+        let tone = getToneFromFrequency(dominantFreq);
+        return { freq: dominantFreq, tone: tone };
+      }
+
+      function displayDominantTone() {
+        fill(0);
+        textSize(16);
+        textAlign(LEFT, TOP);
+        if (dominantTone.freq > 0) {
+          text(`Dominerende frekvens: ${dominantTone.freq.toFixed(2)} Hz (${dominantTone.tone})`, 10, 10 );
+        }
+      }
+
+      function getToneFromFrequency(freq) {
+        if (freq < 20) {
+          return "Ingen gyldig frekvens"; // Returner en besked, hvis frekvensen ikke er realistisk
+        }
+
+        let closestTone = tones.reduce((prev, curr) =>
+          Math.abs(curr.freq - freq) < Math.abs(prev.freq - freq) ? curr : prev
+        );
+        return closestTone.name;
+      }
+
+      function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+          if (sound) {
+            sound.stop(); // Stop tidligere lydfil
+          }
+          sound = loadSound(URL.createObjectURL(file), () => {
+            console.log("Lydfil indlæst!");
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
